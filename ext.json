@@ -1,14 +1,22 @@
 {
-  "name": "MediaPreviewExt",
-  "version": "1.0.0",
-  "author": "Você",
-  "entrypoint": "index.html",
-  "extensions": [
-    {
-      "type": "Workspace",
-      "name": "MediaPreview",
-      "uri": "index.html",
-      "loadedOn": ["Incident", "ChatSession"]
+  "extension": {
+    "name": "MediaPreviewExt",
+    "version": "1.0",
+    "description": "Extensão para exibir mídia de WhatsApp (imagens, vídeos e áudios) diretamente no console do agente.",
+    "workspaceExtension": {
+      "uri": "index.html"
+    },
+    "permissions": {
+      "connections": [
+        {
+          "domain": "https://storage.googleapis.com",
+          "methods": ["GET"]
+        },
+        {
+          "domain": "https://obsnvwpuuptglnziub.supabase.co",
+          "methods": ["GET"]
+        }
+      ]
     }
-  ]
+  }
 }
