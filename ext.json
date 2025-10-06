@@ -10,11 +10,11 @@
       "connections": [
         {
           "domain": "https://storage.googleapis.com",
-          "methods": ["GET"]
+          "methods": ["GET", "HEAD"]
         },
         {
           "domain": "https://obsnvwpuuptglnziub.supabase.co",
-          "methods": ["GET"]
+          "methods": ["GET", "HEAD"]
         }
       ]
     }
