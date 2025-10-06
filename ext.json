@@ -1,0 +1,14 @@
+{
+  "name": "MediaPreviewExt",
+  "version": "1.0.0",
+  "author": "Você",
+  "entrypoint": "index.html",
+  "extensions": [
+    {
+      "type": "Workspace",
+      "name": "MediaPreview",
+      "uri": "index.html",
+      "loadedOn": ["Incident", "ChatSession"]
+    }
+  ]
+}
