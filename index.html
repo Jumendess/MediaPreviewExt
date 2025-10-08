@@ -1,26 +1,24 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8"/>
-    <style>
-      .media-panel {
-        padding: 8px;
-        border-top: 1px solid #e3e3e3;
-        max-height: 320px;
-        overflow: auto;
-        font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-      }
-      .media-item { margin: 8px 0; }
-      .media-item img { max-width: 100%; border-radius: 8px; }
-      .media-item audio, .media-item video { width: 100%; border-radius: 8px; }
-      .media-title { color: #555; margin: 2px 0 6px; }
-    </style>
-  </head>
-  <body>
-    <div id="mediaPanel" class="media-panel">
-      <div class="media-title">Pré-visualização de mídias do chat</div>
-      <div id="mediaList"></div>
-    </div>
-    <script src="app.js"></script>
-  </body>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <title>MediaPreviewExt</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 8px; }
+    .media-item { margin-bottom: 12px; }
+    .media-item img { max-width: 100%; border-radius: 6px; }
+    .media-item audio, .media-item video { width: 100%; outline: none; }
+    .muted { color: #666; font-size: 12px; }
+    .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="muted">Aguardando anexos do chat…</div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
 </html>

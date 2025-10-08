@@ -1,21 +1,25 @@
 {
   "extension": {
     "name": "MediaPreviewExt",
-    "version": "1.0",
-    "description": "Extensão para exibir mídia de WhatsApp (imagens, vídeos e áudios) diretamente no console do agente.",
+    "version": "1.0.0",
+    "description": "Renderiza imagem/áudio/vídeo de anexos de chat (WhatsApp → ODA → Agente) no BUI.",
     "workspaceExtension": {
       "uri": "index.html"
     },
+
+    
     "permissions": {
       "connections": [
         {
           "domain": "https://storage.googleapis.com",
-          "methods": ["GET", "HEAD"]
+          "methods": ["GET", "HEAD", "OPTIONS"]
         },
         {
           "domain": "https://obsnvwpuuptglnziub.supabase.co",
-          "methods": ["GET", "HEAD"]
+          "methods": ["GET", "HEAD", "OPTIONS"]
         }
+
+        
       ]
     }
   }

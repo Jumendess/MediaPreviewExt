@@ -1,106 +1,109 @@
-// BUI carrega a extensão num iframe. Vamos usar ambos os caminhos:
-// 1) O serviço de Chat do SDK (quando disponível)
-// 2) Um observer no DOM do transcript (fallback) para pegar links colados nas mensagens
-
+/* MediaPreviewExt - app.js
+ * Observa anexos do chat via IAttachment e renderiza image/audio/video inline.
+ */
 (function () {
-  // heurística simples para mídia
-  const isImage = u => /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(u) || /^image\//i.test(u.mimetype || '');
-  const isAudio = u => /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|$)/i.test(u) || /^audio\//i.test(u.mimetype || '');
-  const isVideo = u => /\.(mp4|m4v|mov|webm|ogv)(\?|$)/i.test(u) || /^video\//i.test(u.mimetype || '');
+  const root = document.getElementById('root');
 
-  const mediaList = document.getElementById('mediaList');
+  function el(tag, attrs = {}, children = []) {
+    const n = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else n.setAttribute(k, v);
+    });
+    children.forEach(c => n.appendChild(c));
+    return n;
+  }
 
-  function addMediaPreview({ url, title }) {
-    if (!url) return;
-    const item = document.createElement('div');
-    item.className = 'media-item';
+  function isImage(ct) { return /^image\//i.test(ct); }
+  function isAudio(ct) { return /^audio\//i.test(ct); }
+  function isVideo(ct) { return /^video\//i.test(ct); }
 
-    // decide tipo
-    if (isImage(url)) {
-      item.innerHTML = `${title ? `<div class="media-title">${title}</div>` : ''}<img src="${url}" loading="lazy" />`;
-    } else if (isAudio(url)) {
-      item.innerHTML = `${title ? `<div class="media-title">${title}</div>` : ''}<audio controls preload="metadata" src="${url}"></audio>`;
-    } else if (isVideo(url)) {
-      item.innerHTML = `${title ? `<div class="media-title">${title}</div>` : ''}<video controls preload="metadata" src="${url}"></video>`;
+  function renderAttachment(att) {
+    // att esperado: { id, fileName, contentType, url }  (url pode vir do seu conector)
+    const { fileName, contentType, url } = att;
+    const wrap = el('div', { class: 'media-item' });
+
+    // Se houver URL explícita (seu conector WhatsApp → ODA manda), tentamos usá-la.
+    if (url && contentType) {
+      if (isImage(contentType)) {
+        wrap.appendChild(el('img', { src: url, alt: fileName || 'imagem' }));
+      } else if (isAudio(contentType)) {
+        const a = el('audio', { controls: true });
+        a.src = url;
+        wrap.appendChild(a);
+      } else if (isVideo(contentType)) {
+        const v = el('video', { controls: true });
+        v.src = url;
+        wrap.appendChild(v);
+      } else {
+        // Qualquer outro arquivo vira link clicável
+        wrap.appendChild(el('a', { href: url, target: '_blank', rel: 'noopener' , text: fileName || 'arquivo' }));
+      }
     } else {
-      // arquivo genérico
-      item.innerHTML = `${title ? `<div class="media-title">${title}</div>` : ''}<a href="${url}" target="_blank" rel="noopener">Abrir arquivo</a>`;
+      // Fallback (se sua instância expõe método de download por IAttachment)
+      wrap.appendChild(el('div', { class: 'error', text: 'Anexo sem URL direta ou content-type não identificado.' }));
     }
 
-    mediaList.appendChild(item);
-    mediaList.parentElement.scrollTop = mediaList.parentElement.scrollHeight;
+    // legenda
+    const legend = fileName ? ` (${fileName})` : '';
+    wrap.appendChild(el('div', { class: 'muted', text: `${contentType || 'desconhecido'}${legend}`}));
+
+    root.appendChild(wrap);
   }
 
-  // 1) Tentativa com o SDK oficial do BUI
-  const loader = window.ORACLE_SERVICE_CLOUD && window.ORACLE_SERVICE_CLOUD.extension_loader;
-  if (loader && loader.load) {
-    loader.load('MediaPreviewExt', '1.0.0').then(function (sdk) {
-      // Chat provider (quando o workspace for o de Chat)
-      let chat = null;
-      try { chat = sdk.getServiceProvider('Chat'); } catch(e) {}
+  function renderList(attachments) {
+    root.innerHTML = '';
+    if (!attachments || attachments.length === 0) {
+      root.appendChild(el('div', { class: 'muted', text: 'Nenhum anexo no chat ainda.' }));
+      return;
+    }
+    attachments.forEach(renderAttachment);
+  }
 
-      if (chat) {
-        const EVT = chat.Constants.EVENTS;
-        // mensagens novas (do cliente/bot)
-        chat.registerListener(EVT.NEW_MESSAGE, function (m) {
-          // m.text pode conter a URL que seu conector manda (ex.: "📷 ...: https://...").
-          if (m && m.text) {
-            // captura todas as URLs do texto
-            const urls = (m.text.match(/https?:\/\/\S+/g) || []);
-            urls.forEach(u => addMediaPreview({ url: u }));
-          }
-        });
+  function boot(bus) {
+    try {
+      const iAttachment = bus.getInterface('IAttachment');
 
-        // histórico ao carregar o chat (útil ao abrir uma sessão já em andamento)
-        chat.getMessages().then(list => {
-          (list || []).forEach(m => {
-            const urls = (m.text && m.text.match(/https?:\/\/\S+/g)) || [];
-            urls.forEach(u => addMediaPreview({ url: u }));
-          });
-        });
-      } else {
-        // 2) Fallback: observar o transcript do chat e procurar <a href="...">
-        startDomObserver();
+      // 1) Renderiza anexos já presentes quando a extensão sobe
+      if (iAttachment && typeof iAttachment.getAttachments === 'function') {
+        const current = iAttachment.getAttachments();   // ← Lista atual
+        renderList(current);
       }
-    });
-  } else {
-    // se não tiver loader (varia por versão), usa o observer
-    startDomObserver();
-  }
 
-  function startDomObserver() {
-    // procura o painel do chat no DOM
-    const ro = new MutationObserver(() => {
-      const transcript = findTranscript();
-      if (transcript && !transcript._mediaHooked) {
-        transcript._mediaHooked = true;
-        observeTranscript(transcript);
-      }
-    });
-    ro.observe(document.documentElement, { childList: true, subtree: true });
-  }
-
-  function findTranscript() {
-    // o seletor pode variar por tema/versão; pegue o container de mensagens
-    // tente algo genérico: a região do chat costuma ter role="log" ou rolagem própria
-    const candidates = Array.from(document.querySelectorAll('[role="log"], .chat, .transcript, .rn_ChatTranscript')).filter(e => e.querySelector('a[href]'));
-    return candidates[0] || null;
-  }
-
-  function observeTranscript(node) {
-    // processa os links já existentes
-    node.querySelectorAll('a[href]').forEach(a => addMediaPreview({ url: a.href }));
-
-    // observa novas mensagens/links
-    const mo = new MutationObserver(muts => {
-      muts.forEach(m => {
-        m.addedNodes && m.addedNodes.forEach(n => {
-          if (n.nodeType === 1) {
-            n.querySelectorAll && n.querySelectorAll('a[href]').forEach(a => addMediaPreview({ url: a.href }));
-          }
-        });
+      // 2) Observa anexos adicionados
+      // (o nome exato do evento pode variar conforme versão; em geral algo como 'attachmentAdded' / 'added')
+      iAttachment.on('attachmentAdded', function (evt) {
+        // evt.detail/evt.data — depende da versão. Normalmente vem o attachment/array de attachments.
+        const att = (evt && (evt.detail || evt.data)) || evt;
+        if (Array.isArray(att)) att.forEach(renderAttachment);
+        else renderAttachment(att);
       });
-    });
-    mo.observe(node, { childList: true, subtree: true });
+
+      // 3) Observa anexos removidos/limpeza
+      iAttachment.on('attachmentsCleared', function () {
+        renderList([]);
+      });
+
+    } catch (e) {
+      console.error('Falha ao inicializar IAttachment:', e);
+      root.appendChild(el('div', { class: 'error', text: 'Não foi possível inicializar o módulo de anexos.' }));
+    }
   }
+
+  // Aguarda o CXBus do BUI
+  function waitBus(retries = 50) {
+    if (window && window.CXBus && typeof window.CXBus.registerPlugin === 'function') {
+      // Registra um plugin simples
+      window.CXBus.registerPlugin('MediaPreviewExt', function (bus) {
+        boot(bus);
+      });
+    } else if (retries > 0) {
+      setTimeout(() => waitBus(retries - 1), 200);
+    } else {
+      root.appendChild(el('div', { class: 'error', text: 'CXBus não disponível.' }));
+    }
+  }
+
+  waitBus();
 })();
